@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TTC Live Transit Dashboard</title>
+    <meta name="description" content="Real-time tracking dashboard for Toronto TTC streetcars and buses">
+    
+    <!-- External Dependencies -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <!-- Styles -->
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="ttc-dashboard">
+        <div class="dashboard-wrapper">
+            <div class="flex flex-col md:flex-row md:items-end justify-between mb-8 gap-6">
+                <div class="flex items-center gap-4">
+                    <img src="https://i.imgur.com/MTwg73V.png" alt="TTC" class="w-10 md:w-14 h-auto opacity-90">
+                    <h1 id="main-title" class="text-3xl md:text-5xl font-black tracking-tighter text-white">Streetcars</h1>
+                </div>
+                
+                <div class="flex flex-col items-center md:items-end gap-3 w-full md:w-auto">
+                    <div class="flex items-center gap-3 pr-2">
+                        <div id="last-updated" class="text-[8px] md:text-[9px] text-white/40 uppercase font-black tracking-[0.2em]">Connecting...</div>
+                        <div id="status-dot" class="w-1.5 h-1.5 rounded-full dot-glow-yellow animate-pulse"></div>
+                    </div>
+                    <div class="ui-container">
+                        <button class="pill-btn active" data-mode="streetcar" onclick="setMode('streetcar')">Streetcars</button>
+                        <button class="pill-btn" data-mode="bus" onclick="setMode('bus')">Buses</button>
+                        <button class="pill-btn" data-mode="all" onclick="setMode('all')">All</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="hero-grid">
+                <div class="glass p-6 md:p-8 h-32 md:h-48 flex flex-col justify-between">
+                    <div>
+                        <h3 class="text-neutral-500 text-[9px] font-black uppercase tracking-[0.2em] mb-1">Average Speed</h3>
+                        <div class="flex items-baseline gap-1">
+                            <span id="avg-speed" class="text-4xl md:text-5xl font-black tracking-tighter transition-colors duration-500">0.0</span>
+                            <span class="text-neutral-600 font-black text-[10px] uppercase">km/h</span>
+                        </div>
+                    </div>
+                    <div id="speed-trend" class="trend-label h-5 flex items-center"></div>
+                </div>
+                <div class="glass p-6 md:p-8 h-32 md:h-48 flex flex-col justify-between">
+                    <div>
+                        <h3 class="text-neutral-500 text-[9px] font-black uppercase tracking-[0.2em] mb-1">Active Fleet</h3>
+                        <div class="flex items-baseline gap-1">
+                            <span id="vehicle-count" class="text-4xl md:text-5xl font-black tracking-tighter transition-colors duration-500">0</span>
+                            <span id="fleet-unit" class="text-neutral-600 font-black text-[10px] uppercase ml-1">Streetcars</span>
+                        </div>
+                    </div>
+                    <div id="fleet-trend" class="trend-label h-5 flex items-center"></div>
+                </div>
+                <div class="glass p-6 md:p-8 h-32 md:h-48 flex flex-col justify-between">
+                    <div>
+                        <h3 class="text-neutral-500 text-[9px] font-black uppercase tracking-[0.2em] mb-1">Fastest Route</h3>
+                        <div class="flex items-baseline gap-2">
+                            <span id="top-route" class="text-4xl md:text-5xl font-black tracking-tighter">--</span>
+                        </div>
+                    </div>
+                    <div id="top-route-name" class="top-route-label truncate h-7 flex items-center"></div>
+                </div>
+            </div>
+
+            <div class="glass p-4 md:p-8 flex flex-col min-h-[500px]">
+                <div class="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
+                    <h3 id="list-header" class="text-neutral-500 font-black text-[10px] uppercase tracking-[0.2em]">Streetcar Network</h3>
+                    <div class="search-container">
+                        <input type="text" placeholder="SEARCH ROUTE" class="search-input" oninput="handleSearch(this.value)">
+                    </div>
+                </div>
+                <div id="route-list" class="flex flex-col gap-3">
+                    <div id="empty-state" class="flex flex-col items-center justify-center py-20 opacity-20">
+                        <div class="w-8 h-8 border-2 border-white rounded-full border-t-transparent animate-spin mb-4"></div>
+                        <p class="text-[9px] font-black tracking-widest uppercase">Syncing Live Data</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Application Script -->
+    <script src="app.js"></script>
+</body>
+</html>
