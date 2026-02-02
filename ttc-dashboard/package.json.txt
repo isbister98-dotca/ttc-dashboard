@@ -1,0 +1,10 @@
+{
+  "name": "ttc-live-dashboard",
+  "version": "1.0.0",
+  "scripts": {
+    "start": "node api/ttc.js"
+  },
+  "dependencies": {
+    "node-fetch": "^3.3.0"
+  }
+}
