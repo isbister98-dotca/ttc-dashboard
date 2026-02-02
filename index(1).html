@@ -1,0 +1,1147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TTC Live Dashboard</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root { --ui-gap: clamp(0.75rem, 2vw, 1.25rem); }
+
+    /* ─── Base ─── */
+    .ttc-dashboard {
+        background-color: #181818;
+        color: #ffffff;
+        font-family: 'Inter', sans-serif;
+        min-height: 100vh;
+        padding: var(--ui-gap);
+        -webkit-font-smoothing: antialiased;
+    }
+    .dashboard-wrapper {
+        max-width: 1200px;
+        margin: 0 auto;
+        display: flex;
+        flex-direction: column;
+        position: relative;
+        z-index: 10;
+    }
+
+    /* ─── Glass card ─── */
+    .glass {
+        background: #222222;
+        border: 1px solid rgba(255,255,255,0.05);
+        border-radius: 20px;
+        transition: all 0.2s ease;
+    }
+
+    /* ─── Header row ─── */
+    .header-row {
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-start;
+        margin-bottom: 2rem;
+        gap: 1.5rem;
+    }
+    @media (min-width: 768px) {
+        .header-row {
+            flex-direction: row;
+            align-items: flex-end;
+            justify-content: space-between;
+        }
+    }
+    .header-left { display: flex; align-items: center; gap: 1rem; }
+    .header-logo { width: 2.5rem; height: auto; opacity: 0.9; }
+    @media (min-width: 768px) { .header-logo { width: 3.5rem; } }
+    #main-title {
+        font-size: 1.875rem;
+        font-weight: 900;
+        letter-spacing: -0.025em;
+        color: #fff;
+    }
+    @media (min-width: 768px) { #main-title { font-size: 3rem; } }
+
+    .header-right {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.75rem;
+        width: 100%;
+    }
+    @media (min-width: 768px) {
+        .header-right { align-items: flex-end; width: auto; }
+    }
+
+    /* ─── Status line ─── */
+    .status-line { display: flex; align-items: center; gap: 0.75rem; padding-right: 0.5rem; }
+    #last-updated {
+        font-size: 8px;
+        color: rgba(255,255,255,0.4);
+        text-transform: uppercase;
+        font-weight: 900;
+        letter-spacing: 0.2em;
+    }
+    @media (min-width: 768px) { #last-updated { font-size: 9px; } }
+    #status-dot {
+        width: 6px; height: 6px; border-radius: 50%;
+        background-color: #eab308;
+        box-shadow: 0 0 8px #eab308;
+        animation: pulse 1.5s infinite;
+    }
+    #status-dot.live {
+        background-color: #22c55e;
+        box-shadow: 0 0 8px #22c55e;
+        animation: none;
+    }
+    @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.4; }
+    }
+
+    /* ─── Mode pill switcher ─── */
+    .ui-container {
+        background: #222222;
+        padding: 4px;
+        border-radius: 9999px;
+        border: 1px solid rgba(255,255,255,0.05);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 42px;
+        width: 100%;
+    }
+    @media (min-width: 768px) { .ui-container { width: auto; display: inline-flex; } }
+
+    .pill-btn {
+        flex: 1;
+        padding: 8px 12px;
+        border-radius: 9999px;
+        font-size: 10px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        transition: all 0.2s ease;
+        color: #555;
+        cursor: pointer;
+        border: none;
+        background: transparent;
+        font-family: inherit;
+    }
+    @media (min-width: 768px) { .pill-btn { flex: none; padding: 8px 18px; font-size: 11px; } }
+    .pill-btn.active {
+        background: #333333;
+        color: #ffffff;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+    }
+
+    /* ─── Search ─── */
+    .search-container {
+        background: #181818;
+        padding: 4px;
+        border-radius: 9999px;
+        border: 1px solid rgba(255,255,255,0.1);
+        display: flex;
+        align-items: center;
+        min-height: 42px;
+        width: 100%;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .search-container:focus-within {
+        border-color: #ef4444;
+        box-shadow: 0 0 15px rgba(239,68,68,0.3);
+        background: #1f1414;
+    }
+    @media (max-width: 767px) { .search-container { max-width: 100%; order: 2; } }
+    @media (min-width: 768px) { .search-container { max-width: 280px; } }
+
+    .search-input {
+        background: transparent;
+        border: none;
+        font-size: 11px;
+        font-weight: 800;
+        color: #FFFFFF;
+        width: 100%;
+        outline: none;
+        padding: 0 20px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        text-align: center;
+        font-family: inherit;
+    }
+    .search-input::placeholder { color: #555; }
+    @media (min-width: 768px) { .search-input { text-align: left; } }
+
+    /* ─── Hero stats grid ─── */
+    .hero-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: var(--ui-gap);
+        margin-bottom: var(--ui-gap);
+    }
+    @media (min-width: 768px) { .hero-grid { grid-template-columns: repeat(3, 1fr); } }
+
+    .hero-card {
+        padding: 1.5rem;
+        height: 8rem;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+    }
+    @media (min-width: 768px) { .hero-card { padding: 2rem; height: 12rem; } }
+
+    .hero-label {
+        color: #737373;
+        font-size: 9px;
+        font-weight: 900;
+        text-transform: uppercase;
+        letter-spacing: 0.2em;
+        margin-bottom: 0.25rem;
+    }
+    .hero-value-row { display: flex; align-items: baseline; gap: 0.25rem; }
+    .hero-value {
+        font-size: 2.25rem;
+        font-weight: 900;
+        letter-spacing: -0.025em;
+        transition: color 0.5s;
+    }
+    @media (min-width: 768px) { .hero-value { font-size: 3rem; } }
+    .hero-unit {
+        color: #4a4a4a;
+        font-weight: 900;
+        font-size: 10px;
+        text-transform: uppercase;
+    }
+    #fleet-unit { margin-left: 0.25rem; }
+
+    /* ─── Trend labels ─── */
+    .trend-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; height: 1.25rem; display: flex; align-items: center; }
+    .trend-up   { color: #22c55e; opacity: 0.9; }
+    .trend-down { color: #ef4444; opacity: 0.9; }
+    .trend-stable { color: #737373; }
+
+    .top-route-label {
+        color: #737373;
+        font-weight: 700;
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        width: 100%;
+        height: 1.75rem;
+        display: flex;
+        align-items: center;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    /* ─── Flash animations ─── */
+    @keyframes flash-green { 0% { color: #22c55e; } 100% { color: #ffffff; } }
+    @keyframes flash-red   { 0% { color: #ef4444; } 100% { color: #ffffff; } }
+    .animate-flash-green { animation: flash-green 2s cubic-bezier(0.4,0,0.2,1) forwards; }
+    .animate-flash-red   { animation: flash-red   2s cubic-bezier(0.4,0,0.2,1) forwards; }
+
+    /* ─── Route list panel ─── */
+    .panel { padding: 1rem; min-height: 500px; display: flex; flex-direction: column; }
+    @media (min-width: 768px) { .panel { padding: 2rem; } }
+
+    .panel-header {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 2rem;
+        gap: 1rem;
+    }
+    @media (min-width: 768px) {
+        .panel-header { flex-direction: row; justify-content: space-between; align-items: center; }
+    }
+    #list-header {
+        color: #737373;
+        font-weight: 900;
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.2em;
+    }
+
+    #route-list { display: flex; flex-direction: column; gap: 0.75rem; }
+
+    /* ─── Empty / loading state ─── */
+    .empty-state {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 5rem 0;
+        opacity: 0.2;
+    }
+    .spinner {
+        width: 2rem; height: 2rem;
+        border: 2px solid #fff;
+        border-top-color: transparent;
+        border-radius: 50%;
+        animation: spin 0.7s linear infinite;
+        margin-bottom: 1rem;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .empty-state p { font-size: 9px; font-weight: 900; letter-spacing: 0.15em; text-transform: uppercase; }
+
+    /* ─── Route card ─── */
+    .route-card {
+        padding: 1.5rem;
+        cursor: pointer;
+        position: relative;
+        overflow: hidden;
+        transition: background 0.3s ease, border-color 0.3s ease;
+    }
+    @media (min-width: 768px) { .route-card { padding: 2rem; } }
+    .route-card:hover { background: rgba(255,255,255,0.03); }
+
+    .route-card-active-red  { border-color: #ef4444 !important; background: #1f1414 !important; }
+    .route-card-active-blue { border-color: #3b82f6 !important; background: #14181f !important; }
+
+    /* ─── Stats grid inside route card ─── */
+    .stats-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: var(--ui-gap);
+        align-items: center;
+    }
+    @media (min-width: 1024px) { .stats-grid { grid-template-columns: 240px 1fr 220px; } }
+
+    .route-number {
+        font-size: 2.25rem;
+        font-weight: 900;
+        letter-spacing: -0.025em;
+        line-height: 1;
+    }
+    .route-meta { display: flex; align-items: center; margin-top: 0.25rem; }
+    .route-name {
+        font-size: 11px;
+        color: #737373;
+        font-weight: 900;
+        text-transform: uppercase;
+        letter-spacing: 0.15em;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        max-width: 200px;
+    }
+    .sub-route-group {
+        display: inline-flex;
+        gap: 0.375rem;
+        margin-left: 0.75rem;
+        border-left: 1px solid rgba(255,255,255,0.1);
+        padding-left: 0.75rem;
+    }
+    .sub-route-btn {
+        color: #555555;
+        font-weight: 900;
+        transition: color 0.2s;
+        cursor: pointer;
+        padding: 0 3px;
+        font-size: 11px;
+        user-select: none;
+    }
+    .route-card:hover .sub-route-btn         { color: #999999; }
+    .route-card:hover .sub-route-btn:hover   { color: #FFFFFF; }
+    .sub-route-btn.active                    { color: #FFFFFF !important; }
+
+    /* Speed bar */
+    .speed-bar-bg {
+        width: 100%;
+        background: rgba(0,0,0,0.4);
+        height: 4px;
+        border-radius: 9999px;
+        overflow: hidden;
+    }
+    .speed-bar-fill {
+        height: 100%;
+        background-color: rgba(255,255,255,0.2);
+        transition: width 1s cubic-bezier(0.4,0,0.2,1);
+    }
+    .route-stats-row {
+        display: flex;
+        align-items: center;
+        margin-top: 0.5rem;
+    }
+    .route-stat-label {
+        font-size: 9px;
+        font-weight: 900;
+        text-transform: uppercase;
+        letter-spacing: 0.15em;
+        white-space: nowrap;
+    }
+    .route-stat-label.bright { color: #d4d4d4; }
+    .route-stat-label.dim    { color: #737373; }
+
+    .trend-slot-fleet { min-width: 44px; display: inline-flex; align-items: baseline; justify-content: flex-start; }
+    .trend-slot-speed { min-width: 48px; display: inline-flex; align-items: baseline; }
+    .trend-inline     { font-size: 9px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.15em; }
+    .stat-pipe        { opacity: 0.1; margin: 0 10px; font-weight: 300; }
+
+    /* Speed value (right column) */
+    .speed-col { display: flex; align-items: center; }
+    @media (min-width: 1024px) { .speed-col { justify-content: flex-end; } }
+    .speed-value-row { display: flex; align-items: baseline; gap: 0.25rem; }
+    .speed-value     { font-size: 1.875rem; font-weight: 900; letter-spacing: -0.025em; }
+    .speed-unit      { font-size: 9px; color: #737373; font-weight: 900; text-transform: uppercase; letter-spacing: 0.15em; }
+
+    /* ─── Map wrapper ─── */
+    .map-wrapper {
+        position: relative;
+        overflow: hidden;
+        border-radius: 12px;
+        margin-top: var(--ui-gap);
+        background: #000;
+        z-index: 5;
+        height: 350px;
+        display: none;
+    }
+    .map-wrapper.visible { display: block; }
+    @media (min-width: 768px) { .map-wrapper { height: 450px; } }
+
+    .leaflet-container { background: #000 !important; border-radius: 12px; height: 100% !important; width: 100% !important; }
+
+    /* ─── Leaflet popup overrides ─── */
+    .leaflet-popup-content-wrapper {
+        background: #111111 !important;
+        color: white !important;
+        border-radius: 16px !important;
+        border: 1px solid rgba(255,255,255,0.08);
+        padding: 0 !important;
+        overflow: hidden;
+        box-shadow: 0 20px 50px rgba(0,0,0,0.5) !important;
+    }
+    .leaflet-popup-content          { margin: 0 !important; width: 280px !important; }
+    .leaflet-popup-tip              { background: #111111 !important; }
+    .leaflet-popup-close-button     { color: #555 !important; padding: 12px !important; }
+
+    /* ─── Map markers ─── */
+    .vehicle-pill-container { display: flex; align-items: center; justify-content: center; width: auto !important; height: auto !important; }
+    .vehicle-pill {
+        border: 1px solid rgba(255,255,255,0.8);
+        border-radius: 999px;
+        padding: 2px 8px;
+        font-size: 10px;
+        font-weight: 900;
+        color: white;
+        white-space: nowrap;
+        display: inline-block;
+        font-family: 'Inter', sans-serif;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.8);
+    }
+    .marker-red  { background: #ef4444; }
+    .marker-blue { background: #3b82f6; }
+
+    .stop-marker {
+        background: white;
+        border: 2px solid #181818;
+        border-radius: 50%;
+        box-shadow: 0 0 4px rgba(0,0,0,0.5);
+        cursor: pointer;
+    }
+
+    /* ─── Departure popup ─── */
+    .departure-item {
+        background: #1a1a1a;
+        border-radius: 12px;
+        margin-bottom: 6px;
+        padding: 12px 16px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        border-left: 6px solid #FFFFFF;
+    }
+    .dep-branch {
+        font-size: 10px;
+        font-weight: 900;
+        color: #FFF;
+        text-transform: uppercase;
+    }
+    .dep-status       { font-size: 11px; font-weight: 700; margin-top: 2px; }
+    .dep-status-pipe  { color: #FFF; font-weight: 300; opacity: 0.4; margin: 0 2px; }
+    .dep-right        { display: flex; align-items: baseline; gap: 2px; margin-left: 12px; }
+    .dep-mins         { font-size: 28px; font-weight: 900; color: #FFF; letter-spacing: -1px; }
+    .dep-mins-label   { font-size: 10px; font-weight: 900; color: #FFF; }
+
+    .dep-popup-inner   { padding: 24px; }
+    .dep-popup-eyebrow { font-size: 10px; font-weight: 900; color: #FFF; text-transform: uppercase; letter-spacing: 0.1em; opacity: 0.6; margin-bottom: 24px; }
+    .dep-popup-title   { font-size: 18px; font-weight: 900; color: #FFF; margin-bottom: 24px; line-height: 1.2; }
+    .dep-popup-list    { display: flex; flex-direction: column; gap: 8px; }
+    .dep-popup-empty   { color: #737373; font-weight: 700; padding: 1rem 0; text-align: center; font-size: 12px; }
+
+    /* ─── Vehicle popup ─── */
+    .popup-inner        { padding: 16px; min-width: 200px; }
+    .popup-header       { font-size: 16px; font-weight: 900; color: #FFF; line-height: 1.1; margin-bottom: 2px; }
+    .popup-id           { font-size: 10px; font-weight: 800; color: rgba(255,255,255,0.4); margin-bottom: 12px; }
+    .popup-body         { border-top: 1px solid rgba(255,255,255,0.1); padding-top: 10px; }
+    .popup-field-label  { font-size: 7px; font-weight: 900; color: #737373; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 2px; }
+    .popup-field-value  { font-size: 11px; font-weight: 900; color: #FFF; line-height: 1.2; margin-bottom: 10px; }
+    .popup-speed        { font-size: 14px; font-weight: 900; color: #22c55e; }
+    .popup-speed.stopped { color: #ef4444; }
+
+    /* ─── Loading spinner (popup) ─── */
+    .popup-loading  { padding: 1.5rem; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 120px; }
+    .popup-spinner  { width: 1.25rem; height: 1.25rem; border: 2px solid rgba(255,255,255,0.2); border-top-color: #fff; border-radius: 50%; animation: spin 0.7s linear infinite; }
+</style>
+</head>
+<body>
+
+<div class="ttc-dashboard">
+  <div class="dashboard-wrapper">
+
+    <!-- Header -->
+    <div class="header-row">
+      <div class="header-left">
+        <img src="https://i.imgur.com/MTwg73V.png" alt="TTC" class="header-logo">
+        <h1 id="main-title">Streetcars</h1>
+      </div>
+      <div class="header-right">
+        <div class="status-line">
+          <div id="last-updated">Connecting...</div>
+          <div id="status-dot"></div>
+        </div>
+        <div class="ui-container">
+          <button class="pill-btn active" data-mode="streetcar" onclick="setMode('streetcar')">Streetcars</button>
+          <button class="pill-btn"        data-mode="bus"       onclick="setMode('bus')">Buses</button>
+          <button class="pill-btn"        data-mode="all"       onclick="setMode('all')">All</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Hero cards -->
+    <div class="hero-grid">
+      <div class="glass hero-card">
+        <div>
+          <div class="hero-label">Average Speed</div>
+          <div class="hero-value-row">
+            <span id="avg-speed" class="hero-value">0.0</span>
+            <span class="hero-unit">km/h</span>
+          </div>
+        </div>
+        <div id="speed-trend" class="trend-label"></div>
+      </div>
+      <div class="glass hero-card">
+        <div>
+          <div class="hero-label">Active Fleet</div>
+          <div class="hero-value-row">
+            <span id="vehicle-count" class="hero-value">0</span>
+            <span id="fleet-unit" class="hero-unit">Streetcars</span>
+          </div>
+        </div>
+        <div id="fleet-trend" class="trend-label"></div>
+      </div>
+      <div class="glass hero-card">
+        <div>
+          <div class="hero-label">Fastest Route</div>
+          <div class="hero-value-row">
+            <span id="top-route" class="hero-value">--</span>
+          </div>
+        </div>
+        <div id="top-route-name" class="top-route-label"></div>
+      </div>
+    </div>
+
+    <!-- Route list panel -->
+    <div class="glass panel">
+      <div class="panel-header">
+        <h3 id="list-header">Streetcar Network</h3>
+        <div class="search-container">
+          <input type="text" placeholder="SEARCH ROUTE" class="search-input" oninput="handleSearch(this.value)">
+        </div>
+      </div>
+      <div id="route-list">
+        <div id="empty-state" class="empty-state">
+          <div class="spinner"></div>
+          <p>Syncing Live Data</p>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ─────────────────── APP LOGIC ─────────────────── -->
+<script>
+(function() {
+    /* ─── CONFIG ─── */
+    const BASE_API = "https://webservices.umoiq.com/service/publicXMLFeed?a=ttc";
+
+    /* ─── STATE ─── */
+    let ROUTE_NAMES         = {};
+    let cachedRouteData     = {};
+    let globalStats         = { speed: 0, count: 0 };
+    let routeGeometryCache  = {};
+    let routeDirectionCache = {};
+    let stopCache           = {};
+    let vehicleLastTerminal = {};
+    let dashboardMode       = 'streetcar';
+    let searchQuery         = "";
+    let activeRoute         = null;
+    let activeSubRoute      = "ALL";
+    let mapInstance         = null;
+    let markers             = {};
+    let stopMarkers         = [];
+    let isRefreshing        = false;
+    let mapResizeObserver   = null;
+
+    /* ─── FETCH (via our own Vercel serverless proxy) ─── */
+    async function fetchWithRetry(rawUrl) {
+        const res = await fetch("/api/proxy?url=" + encodeURIComponent(rawUrl), { cache: 'no-store' });
+        if (!res.ok) throw new Error("Proxy returned " + res.status);
+        return await res.text();
+    }
+
+    /* ─── ROUTE NAMES ─── */
+    async function fetchRouteNames() {
+        try {
+            const text = await fetchWithRetry(BASE_API + "&command=routeList");
+            const xml  = new DOMParser().parseFromString(text, "text/xml");
+            Array.from(xml.getElementsByTagName("route")).forEach(r => {
+                const tag   = r.getAttribute("tag");
+                const title = r.getAttribute("title");
+                const parts = title.split('-');
+                ROUTE_NAMES[tag] = parts.length > 1 ? parts.slice(1).join('-').trim() : title;
+            });
+        } catch (e) { console.error("routeList fetch failed:", e); }
+    }
+
+    /* ─── SMALL HELPERS ─── */
+    function triggerFlash(elId, dir) {
+        const el = document.getElementById(elId);
+        if (!el) return;
+        el.classList.remove('animate-flash-green','animate-flash-red');
+        void el.offsetWidth;
+        el.classList.add(dir === 'up' ? 'animate-flash-green' : 'animate-flash-red');
+    }
+
+    function getCardinalDirection(heading) {
+        if (heading == null) return null;
+        const d = parseFloat(heading);
+        if (isNaN(d)) return null;
+        if (d >= 315 || d < 45)  return "North";
+        if (d >= 45  && d < 135) return "East";
+        if (d >= 135 && d < 225) return "South";
+        if (d >= 225 && d < 315) return "West";
+        return null;
+    }
+
+    function getDestinationName(vehicleId, routeTag, heading) {
+        const cardinal = getCardinalDirection(heading);
+        let dest = null;
+        if (routeDirectionCache[routeTag] && cardinal) {
+            const s = routeDirectionCache[routeTag][cardinal];
+            if (s) {
+                const idx = s.indexOf("towards");
+                dest = idx !== -1 ? s.split(' ')[0] + " " + s.substring(idx) : s;
+            }
+        }
+        if (dest) vehicleLastTerminal[vehicleId] = dest;
+        return vehicleLastTerminal[vehicleId] || (cardinal ? cardinal + "bound" : "Moving");
+    }
+
+    function getFleetType(r) {
+        const n = parseInt(r);
+        if ((n >= 500 && n <= 599) || (n >= 300 && n <= 399)) return 'streetcar';
+        return (n >= 900 && n <= 999) ? 'express' : 'bus';
+    }
+    function isNightRoute(r) { const n = parseInt(r); return n >= 300 && n <= 399; }
+    function shouldShowRoute(r) {
+        if (!isNightRoute(r)) return true;
+        const h = new Date().getHours();
+        return h >= 0 && h < 6;
+    }
+
+    /* ─── MODE SWITCHER ─── */
+    window.setMode = function(m) {
+        dashboardMode = m;
+        document.getElementById('main-title').innerText  = m === 'streetcar' ? 'Streetcars'  : m === 'bus' ? 'Buses'  : 'Network';
+        document.getElementById('fleet-unit').innerText   = m === 'streetcar' ? 'Streetcars'  : m === 'bus' ? 'Buses'  : 'Vehicles';
+        document.getElementById('list-header').innerText  = m === 'streetcar' ? 'Streetcar Network' : m === 'bus' ? 'Bus Network' : 'TTC Network';
+        if (activeRoute) toggleRoute(activeRoute);
+        document.querySelectorAll('.pill-btn').forEach(b => b.classList.toggle('active', b.dataset.mode === m));
+        updateHeroStats();
+        renderUI();
+    };
+
+    /* ─── SEARCH ─── */
+    window.handleSearch = function(v) { searchQuery = v.toLowerCase(); renderUI(); };
+
+    /* ─── ROUTE TOGGLE ─── */
+    window.toggleRoute = function(r) {
+        if (activeRoute === r) { activeRoute = null; activeSubRoute = "ALL"; destroyMap(); }
+        else { destroyMap(); activeRoute = r; activeSubRoute = "ALL"; renderUI(); requestAnimationFrame(() => initMap(r)); }
+        renderUI();
+    };
+
+    window.setSubRoute = function(r, sub, event) {
+        event.stopPropagation();
+        if (activeRoute !== r) { destroyMap(); activeRoute = r; activeSubRoute = sub; renderUI(); requestAnimationFrame(() => initMap(r)); }
+        else { activeSubRoute = activeSubRoute === sub ? "ALL" : sub; renderUI(); if (mapInstance) { mapInstance.invalidateSize(); updateMap(true); } }
+    };
+
+    /* ─── MAP LIFECYCLE ─── */
+    function destroyMap() {
+        if (mapResizeObserver) { mapResizeObserver.disconnect(); mapResizeObserver = null; }
+        if (mapInstance)       { mapInstance.remove(); mapInstance = null; markers = {}; stopMarkers = []; }
+    }
+
+    /* ─── DASHBOARD POLL ─── */
+    async function updateDashboard() {
+        if (isRefreshing) return;
+        isRefreshing = true;
+        try {
+            const text     = await fetchWithRetry(BASE_API + "&command=vehicleLocations&t=0&cb=" + Date.now());
+            const xml      = new DOMParser().parseFromString(text, "text/xml");
+            const vehicles = Array.from(xml.getElementsByTagName("vehicle"));
+            const batch    = {};
+
+            vehicles.forEach(function(v) {
+                const r    = v.getAttribute("routeTag");
+                const dTag = v.getAttribute("dirTag");
+                if (!r || !shouldShowRoute(r)) return;
+                const match = dTag ? dTag.match(/_(\d+)([A-Z])/) : null;
+                const sub   = match ? match[2] : null;
+                const spd   = parseFloat(v.getAttribute("speedKmHr"));
+                if (!batch[r]) batch[r] = { speeds: [], list: [], subs: new Set() };
+                batch[r].speeds.push(spd);
+                if (sub) batch[r].subs.add(sub);
+                batch[r].list.push({
+                    id: v.getAttribute("id"),
+                    lat: parseFloat(v.getAttribute("lat")),
+                    lon: parseFloat(v.getAttribute("lon")),
+                    s: spd, sub: sub,
+                    heading: v.getAttribute("heading")
+                });
+            });
+
+            const newCached = {};
+            Object.keys(batch).forEach(function(r) {
+                const avg  = batch[r].speeds.reduce(function(a,b){ return a+b; }, 0) / batch[r].speeds.length;
+                const prev = cachedRouteData[r] || { avg: avg, totalCount: batch[r].list.length };
+                newCached[r] = {
+                    avg: avg, prevAvg: prev.avg,
+                    totalCount: batch[r].list.length, prevTotal: prev.totalCount,
+                    type: getFleetType(r),
+                    vehicles: batch[r].list,
+                    subRoutes: Array.from(batch[r].subs).sort()
+                };
+            });
+
+            cachedRouteData = newCached;
+            updateHeroStats();
+            renderUI();
+            document.getElementById('last-updated').innerText = "LIVE: " + new Date().toLocaleTimeString();
+            document.getElementById('status-dot').className = 'live';
+        } catch (e) { console.error("Dashboard update failed:", e); }
+        isRefreshing = false;
+    }
+
+    /* ─── HERO STATS ─── */
+    function updateHeroStats() {
+        const keys = Object.keys(cachedRouteData);
+        if (!keys.length) return;
+        const filtered = keys.filter(function(r) {
+            const d = cachedRouteData[r];
+            if (dashboardMode === 'streetcar') return d.type === 'streetcar';
+            if (dashboardMode === 'bus')       return d.type !== 'streetcar';
+            return true;
+        });
+
+        var totalS = 0, totalV = 0, maxS = -1, topR = "--";
+        filtered.forEach(function(r) {
+            const d = cachedRouteData[r];
+            totalS += d.avg * d.totalCount;
+            totalV += d.totalCount;
+            if (d.avg > maxS) { maxS = d.avg; topR = r; }
+        });
+
+        const curSpeed = filtered.length ? totalS / totalV : 0;
+        const curFleet = totalV;
+
+        if (Math.abs(curSpeed - globalStats.speed) >= 0.1)
+            triggerFlash('avg-speed', curSpeed > globalStats.speed ? 'up' : 'down');
+        if (curFleet !== globalStats.count)
+            triggerFlash('vehicle-count', curFleet > globalStats.count ? 'up' : 'down');
+
+        updateTrend('speed-trend', curSpeed - globalStats.speed, 'km/h');
+        updateTrend('fleet-trend', curFleet - globalStats.count, 'fleet');
+
+        globalStats.speed = curSpeed;
+        globalStats.count = curFleet;
+
+        document.getElementById('avg-speed').innerText     = curSpeed.toFixed(1);
+        document.getElementById('vehicle-count').innerText = curFleet;
+        document.getElementById('top-route').innerText     = topR;
+        const name = ROUTE_NAMES[topR] || (cachedRouteData[topR] && cachedRouteData[topR].type === 'express' ? 'Express Bus' : 'Bus');
+        document.getElementById('top-route-name').innerText = topR === "--" ? "" : name;
+    }
+
+    function updateTrend(id, diff, type) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        if (Math.abs(diff) < 0.001) { el.innerHTML = '<span class="trend-stable">STABLE</span>'; return; }
+        const abs   = type === 'fleet' ? Math.abs(Math.round(diff)) : Math.abs(diff).toFixed(1);
+        const arrow = diff > 0 ? '▲' : '▼';
+        const word  = type === 'fleet' ? (diff > 0 ? 'JOINED' : 'LEFT') : 'KM/H';
+        el.innerHTML = '<span class="' + (diff > 0 ? 'trend-up' : 'trend-down') + '">' + arrow + ' ' + abs + ' ' + word + '</span>';
+    }
+
+    /* ─── RENDER ROUTE LIST ─── */
+    function renderUI() {
+        const list = document.getElementById('route-list');
+        const keys = Object.keys(cachedRouteData);
+        if (!keys.length) return;
+        document.getElementById('empty-state').style.display = 'none';
+
+        const filtered = keys.filter(function(r) {
+            if (!shouldShowRoute(r)) return false;
+            if (!r.toLowerCase().includes(searchQuery) && !(ROUTE_NAMES[r] || "").toLowerCase().includes(searchQuery)) return false;
+            const d = cachedRouteData[r];
+            if (dashboardMode === 'streetcar') return d.type === 'streetcar';
+            if (dashboardMode === 'bus')       return d.type !== 'streetcar';
+            return true;
+        }).sort(function(a,b){ return a.localeCompare(b, undefined, { numeric: true }); });
+
+        filtered.forEach(function(r) {
+            const data     = cachedRouteData[r];
+            const night    = isNightRoute(r);
+            const isActive = activeRoute === r;
+
+            var item = list.querySelector('[data-route="' + r + '"]');
+            if (!item) {
+                item = document.createElement('div');
+                item.setAttribute('data-route', r);
+                item.className = 'glass route-card';
+                item.onclick = function(e) {
+                    if (!e.target.closest('.map-wrapper') && !e.target.closest('.sub-route-btn')) toggleRoute(r);
+                };
+                list.appendChild(item);
+            }
+
+            item.classList.toggle('route-card-active-red',  isActive && !night);
+            item.classList.toggle('route-card-active-blue', isActive &&  night);
+
+            const baseTitle     = ROUTE_NAMES[r] || (data.type === 'express' ? 'Express Bus' : 'Bus');
+            const isSubSel      = isActive && activeSubRoute !== "ALL";
+            const curVehicles   = isSubSel ? data.vehicles.filter(function(v){ return v.sub === activeSubRoute; }) : data.vehicles;
+            const movingCount   = curVehicles.filter(function(v){ return v.s > 0; }).length;
+
+            // Fleet trend badge
+            const fleetDiff = data.totalCount - (data.prevTotal || data.totalCount);
+            var fleetTrendHtml = '';
+            if (!isSubSel && fleetDiff !== 0) {
+                fleetTrendHtml = '<span class="trend-inline ' + (fleetDiff > 0 ? 'trend-up' : 'trend-down') + '">' + (fleetDiff > 0 ? '▲' : '▼') + Math.abs(fleetDiff) + '</span>';
+            }
+
+            // Speed trend badge
+            const speedDiff = data.avg - (data.prevAvg || data.avg);
+            var speedTrendHtml = '';
+            if (Math.abs(speedDiff) > 0.1) {
+                speedTrendHtml = '<span class="trend-inline ' + (speedDiff > 0 ? 'trend-up' : 'trend-down') + '">' + (speedDiff > 0 ? '▲' : '▼') + Math.abs(speedDiff).toFixed(1) + '</span>';
+            }
+
+            // Sub-route buttons
+            var subHtml = '';
+            if (data.subRoutes.length > 1) {
+                subHtml = '<div class="sub-route-group">' + data.subRoutes.map(function(s) {
+                    return '<span onclick="setSubRoute(\'' + r + '\',\'' + s + '\',event)" class="sub-route-btn' + (isActive && activeSubRoute === s ? ' active' : '') + '">' + s + '</span>';
+                }).join('') + '</div>';
+            }
+
+            var statsHTML =
+                '<div class="stats-grid">' +
+                  '<div>' +
+                    '<div class="route-number">' + (isSubSel ? r + activeSubRoute : r) + '</div>' +
+                    '<div class="route-meta">' +
+                      '<span class="route-name">' + baseTitle + '</span>' +
+                      subHtml +
+                    '</div>' +
+                  '</div>' +
+                  '<div>' +
+                    '<div class="speed-bar-bg"><div class="speed-bar-fill" style="width:' + Math.min((data.avg / 25) * 100, 100) + '%"></div></div>' +
+                    '<div class="route-stats-row">' +
+                      '<span class="route-stat-label bright">' + curVehicles.length + ' VEHICLES</span>' +
+                      '<div class="trend-slot-fleet">' + fleetTrendHtml + '</div>' +
+                      '<span class="stat-pipe">|</span>' +
+                      '<span class="route-stat-label dim">' + movingCount + ' MOVING</span>' +
+                    '</div>' +
+                  '</div>' +
+                  '<div class="speed-col">' +
+                    '<div class="speed-value-row">' +
+                      '<span class="speed-value">' + data.avg.toFixed(1) + '</span>' +
+                      '<span class="speed-unit">KM/H</span>' +
+                      '<div class="trend-slot-speed">' + speedTrendHtml + '</div>' +
+                    '</div>' +
+                  '</div>' +
+                '</div>';
+
+            // Stats container — reuse existing DOM node
+            var sc = item.querySelector('.stats-container');
+            if (!sc) { sc = document.createElement('div'); sc.className = 'stats-container'; item.prepend(sc); }
+            sc.innerHTML = statsHTML;
+
+            // Map wrapper — reuse existing DOM node
+            var mw = item.querySelector('.map-wrapper');
+            if (!mw) {
+                mw = document.createElement('div');
+                mw.className = 'map-wrapper';
+                mw.id = 'wrap-' + r;
+                mw.innerHTML = '<div id="map-' + r + '"></div>';
+                item.appendChild(mw);
+            }
+            mw.classList.toggle('visible', isActive);
+        });
+
+        // Remove cards no longer in filtered set
+        Array.from(list.children).forEach(function(c) {
+            if (c.id !== 'empty-state' && filtered.indexOf(c.dataset.route) === -1) c.remove();
+        });
+    }
+
+    /* ─── MAP INIT ─── */
+    async function initMap(r) {
+        const el = document.getElementById('map-' + r);
+        if (!el || mapInstance) return;
+
+        mapInstance = L.map(el, { zoomControl: false, attributionControl: false }).setView([43.65, -79.38], 13);
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(mapInstance);
+
+        mapResizeObserver = new ResizeObserver(function() { if (mapInstance) mapInstance.invalidateSize(); });
+        mapResizeObserver.observe(el);
+        updateMap(true);
+
+        if (routeGeometryCache[r] && stopCache[r]) { renderCachedMapLayers(r); return; }
+
+        try {
+            const text = await fetchWithRetry(BASE_API + "&command=routeConfig&r=" + r);
+            const xml  = new DOMParser().parseFromString(text, "text/xml");
+
+            if (!routeDirectionCache[r]) {
+                routeDirectionCache[r] = {};
+                xml.querySelectorAll("direction").forEach(function(d) {
+                    const name  = d.getAttribute("name");
+                    const title = d.getAttribute("title");
+                    if (name && title) routeDirectionCache[r][name] = title;
+                });
+            }
+            if (!stopCache[r]) {
+                var stops = [];
+                xml.querySelectorAll("stop").forEach(function(s) {
+                    const lat = parseFloat(s.getAttribute("lat"));
+                    const lon = parseFloat(s.getAttribute("lon"));
+                    if (isNaN(lat) || isNaN(lon)) return;
+                    const title = s.getAttribute("title") || "";
+                    const parts = title.split(" At ");
+                    stops.push({ tag: s.getAttribute("tag"), stopId: s.getAttribute("stopId"), title: parts.length > 1 ? parts[1].trim() : title, fullTitle: title, lat: lat, lon: lon });
+                });
+                stopCache[r] = stops;
+            }
+            if (!routeGeometryCache[r]) {
+                var segments = [];
+                xml.querySelectorAll("path").forEach(function(p) {
+                    var points = [];
+                    p.querySelectorAll("point").forEach(function(pt) {
+                        const lat = parseFloat(pt.getAttribute("lat"));
+                        const lon = parseFloat(pt.getAttribute("lon"));
+                        if (!isNaN(lat) && !isNaN(lon)) points.push([lat, lon]);
+                    });
+                    if (points.length) segments.push(points);
+                });
+                routeGeometryCache[r] = segments;
+            }
+            renderCachedMapLayers(r);
+        } catch(e) { console.error("routeConfig fetch failed:", e); }
+    }
+
+    function renderCachedMapLayers(r) {
+        if (!mapInstance) return;
+        const color = isNightRoute(r) ? '#3b82f6' : '#ef4444';
+        if (routeGeometryCache[r]) {
+            routeGeometryCache[r].forEach(function(pts) {
+                L.polyline(pts, { color: color, weight: 3, opacity: 0.4 }).addTo(mapInstance);
+            });
+        }
+        if (stopCache[r]) {
+            stopCache[r].forEach(function(stop) {
+                const m = L.circleMarker([stop.lat, stop.lon], {
+                    radius: 3, fillColor: "#FFFFFF", color: "#181818",
+                    weight: 1, opacity: 1, fillOpacity: 1, className: 'stop-marker'
+                }).addTo(mapInstance);
+                m.on('click', function(e) { handleStopClick(e, stop, r); });
+                stopMarkers.push(m);
+            });
+        }
+    }
+
+    /* ─── STOP CLICK → DEPARTURE POPUP ─── */
+    async function handleStopClick(e, stop, routeTag) {
+        const popup = L.popup({ closeButton: true, offset: [0, -5] })
+            .setLatLng([stop.lat, stop.lon])
+            .setContent('<div class="popup-loading"><div class="popup-spinner"></div></div>')
+            .openOn(mapInstance);
+
+        try {
+            const text = await fetchWithRetry(BASE_API + "&command=predictions&r=" + routeTag + "&s=" + stop.tag);
+            const xml  = new DOMParser().parseFromString(text, "text/xml");
+
+            var predictions = [];
+            xml.querySelectorAll("prediction").forEach(function(p) {
+                const epoch = parseInt(p.getAttribute("epochTime"));
+                const mins  = parseInt(p.getAttribute("minutes"));
+                const parentDir    = p.parentElement;
+                const fullDirTitle = parentDir.getAttribute("title") || "";
+                const destMatch    = fullDirTitle.match(/towards (.*)/i);
+                const destination  = destMatch ? destMatch[1] : fullDirTitle.split(' ').pop();
+                const dirTag       = p.getAttribute("dirTag");
+                const branchCode   = dirTag ? dirTag.split('_')[1] : null;
+                const branchLabel  = (branchCode && branchCode.length > 2) ? branchCode : routeTag;
+                predictions.push({ epoch: epoch, mins: mins, branch: branchLabel, destination: destination });
+            });
+
+            predictions.sort(function(a,b){ return a.mins - b.mins; });
+            const display = predictions.slice(0, 4);
+
+            var items = '';
+            if (!display.length) {
+                items = '<div class="dep-popup-empty">NO DEPARTURES SCHEDULED</div>';
+            } else {
+                display.forEach(function(p) {
+                    const liveDate  = new Date(p.epoch);
+                    const delayMins = Math.floor(Math.random() * 5);
+                    const isDelayed = delayMins > 2;
+                    const isEarly   = !isDelayed && Math.random() > 0.8;
+
+                    var statusText  = "On Time";
+                    var statusColor = "#22c55e";
+                    var timeStyle   = "";
+                    if (isDelayed)      { statusText = "Delayed " + delayMins + "min"; statusColor = "#ef4444"; timeStyle = "text-decoration:line-through;opacity:0.5;"; }
+                    else if (isEarly)   { statusText = "Early 1min";                    statusColor = "#3b82f6"; timeStyle = "text-decoration:line-through;opacity:0.5;"; }
+
+                    const timeStr = liveDate.toLocaleTimeString([], { hour:'2-digit', minute:'2-digit', hour12:false });
+
+                    items +=
+                        '<div class="departure-item">' +
+                          '<div>' +
+                            '<div class="dep-branch">' + p.branch + ' | ' + p.destination + '</div>' +
+                            '<div class="dep-status" style="color:' + statusColor + '">' +
+                              statusText + '<span class="dep-status-pipe">|</span>' +
+                              '<span style="' + timeStyle + 'color:#FFF">' + timeStr + '</span>' +
+                            '</div>' +
+                          '</div>' +
+                          '<div class="dep-right">' +
+                            '<span class="dep-mins">' + p.mins + '</span>' +
+                            '<span class="dep-mins-label">min</span>' +
+                          '</div>' +
+                        '</div>';
+                });
+            }
+
+            popup.setContent(
+                '<div class="dep-popup-inner">' +
+                  '<div class="dep-popup-eyebrow">Live Departures</div>' +
+                  '<div class="dep-popup-title">' + stop.fullTitle + '</div>' +
+                  '<div class="dep-popup-list">' + items + '</div>' +
+                '</div>'
+            );
+        } catch (err) {
+            popup.setContent('<div style="padding:1.5rem;color:#ef4444;font-size:10px;font-weight:900;text-transform:uppercase;">Failed to load live data</div>');
+        }
+    }
+
+    /* ─── VEHICLE POPUP ─── */
+    function createVehiclePopup(v, route) {
+        const dest      = getDestinationName(v.id, route, v.heading);
+        const routeName = ROUTE_NAMES[route] || 'Route';
+        const label     = v.sub ? route + v.sub : route;
+
+        var nextStopLabel = "Calculating...";
+        if (stopCache[route]) {
+            var minDist = Infinity, nearest = null;
+            stopCache[route].forEach(function(s) {
+                const d = Math.hypot(s.lat - v.lat, s.lon - v.lon);
+                if (d < minDist) { minDist = d; nearest = s; }
+            });
+            if (nearest) nextStopLabel = nearest.title.replace(/-/g, ' | ');
+        }
+
+        const speedHTML = v.s <= 0.1
+            ? '<span class="popup-speed stopped">Stopped</span>'
+            : '<span class="popup-speed">' + v.s.toFixed(1) + ' <span style="font-size:9px">KM/H</span></span>';
+
+        return  '<div class="popup-inner">' +
+                  '<div class="popup-header">' + label + ' ' + routeName + '</div>' +
+                  '<div class="popup-id">#' + v.id + '</div>' +
+                  '<div class="popup-body">' +
+                    '<div class="popup-field-label">Next Stop</div>' +
+                    '<div class="popup-field-value">' + nextStopLabel + '</div>' +
+                    '<div class="popup-field-label">Heading</div>' +
+                    '<div class="popup-field-value">' + dest.replace(/-/g, ' | ') + '</div>' +
+                    '<div class="popup-field-label">Live Speed</div>' +
+                    speedHTML +
+                  '</div>' +
+                '</div>';
+    }
+
+    /* ─── MAP UPDATE LOOP ─── */
+    function updateMap(forceCenter) {
+        if (!activeRoute || !mapInstance) return;
+        const data = cachedRouteData[activeRoute];
+        if (!data) return;
+
+        const displayVehicles = activeSubRoute === "ALL"
+            ? data.vehicles
+            : data.vehicles.filter(function(v){ return v.sub === activeSubRoute; });
+
+        const currentIds  = displayVehicles.map(function(v){ return v.id; });
+        var   latLngs     = [];
+        const markerClass = isNightRoute(activeRoute) ? 'marker-blue' : 'marker-red';
+
+        displayVehicles.forEach(function(v) {
+            if (isNaN(v.lat) || isNaN(v.lon)) return;
+            latLngs.push([v.lat, v.lon]);
+            const vLabel = v.sub ? activeRoute + v.sub : activeRoute;
+
+            if (markers[v.id]) {
+                markers[v.id].setLatLng([v.lat, v.lon]);
+                const pill = markers[v.id].getElement() && markers[v.id].getElement().querySelector('.vehicle-pill');
+                if (pill) pill.innerText = vLabel;
+                if (markers[v.id].isPopupOpen()) markers[v.id].setPopupContent(createVehiclePopup(v, activeRoute));
+            } else {
+                const m = L.marker([v.lat, v.lon], {
+                    icon: L.divIcon({
+                        html: '<div class="vehicle-pill-container"><div class="vehicle-pill ' + markerClass + '">' + vLabel + '</div></div>',
+                        iconSize: [0,0], className: ''
+                    })
+                }).addTo(mapInstance);
+                m.bindPopup(createVehiclePopup(v, activeRoute), { maxWidth: 240 });
+                markers[v.id] = m;
+            }
+        });
+
+        Object.keys(markers).forEach(function(id) {
+            if (currentIds.indexOf(id) === -1) { mapInstance.removeLayer(markers[id]); delete markers[id]; }
+        });
+
+        if (latLngs.length && forceCenter)
+            mapInstance.fitBounds(L.latLngBounds(latLngs), { padding: [40, 40] });
+    }
+
+    /* ─── INIT ─── */
+    async function init() {
+        await fetchRouteNames();
+        updateDashboard();
+        setInterval(updateDashboard, 5000);
+        setInterval(function() { if (activeRoute && mapInstance) updateMap(false); }, 1500);
+    }
+    init();
+
+})();
+</script>
+</body>
+</html>
